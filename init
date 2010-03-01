@@ -41,6 +41,7 @@ if [ -d /sdcard/$CARD_PATH ] ; then
 	card=/sdcard/$CARD_PATH
 else
 	card=/sdcard
+fi
 
 if [ -f $card/rootfs.img ] ; then
     root="$card/rootfs.img"
