@@ -1,0 +1,72 @@
+#!/bin/sh
+echo "Welcome to Vogue Linux"
+mkdir -m 0755 /proc
+mount -t proc proc /proc
+mkdir -m 0755 /sys
+mount -t sysfs sys /sys
+
+#Configure Devices
+MAKEDEVS
+
+fail() {
+    echo "Failed"
+    echo "$1"
+    exec /bin/sh
+}
+while [ ! -d /sys/block/mmcblk0 ] ; do
+    echo "Waiting for SD Card"
+    sleep 1
+done
+
+partition=mmcblk0p1
+
+# Try unpartitioned card
+if [ ! -d /sys/block/mmcblk0/$partition ] ; then
+    partition=mmcblk0
+fi
+
+mkdir -m 0777 /sdcard
+echo "Running an fsck on the SD card"
+dosfsck -y /dev/block/$partition
+mount -t vfat -o fmask=0000,dmask=0000,rw,flush,noatime,nodiratime /dev/block/$partition /sdcard
+[ $? -eq 0 ] || fail "Failed to mount the SD card. Cannot continue."
+
+if [ -f /sdcard/android/rootfs.img ] ; then
+    root="/sdcard/android/rootfs.img"
+    SQUASHFS=0
+elif [ -f /sdcard/android/rootfs.sqsh ]; then
+    root="/sdcard/android/rootfs.sqsh"
+    SQUASHFS=1
+elif [ -f /sdcard/rootfs.img ]; then
+    root="/sdcard/rootfs.img"
+    SQUASHFS=0
+elif [ -f /sdcard/rootfs.sqsh ]; then
+    root="/sdcard/rootfs.sqsh"
+    SQUASHFS=1
+else
+	fail "Failed to find rootfs on SD Card. You need to unzip a rootfs zip file to the root of your SD card."
+fi
+
+mkdir -m 0755 /rfs
+losetup /dev/block/loop2 $root
+[ $? -eq 0 ] || fail "Failed to mount rootfs on SD Card."
+
+if [ $SQUASHFS -eq 0 ]; then
+    e2fsck -y /dev/block/loop2
+    mount -t ext2 -o noatime,nodiratime,sync,ro /dev/block/loop2 /rfs
+    [ $? -eq 0 ] || fail "Failed to mount rootfs"
+else
+    mount -t squashfs -o noatime,nodiratime,sync,ro /dev/block/loop2 /rfs
+    [ $? -eq 0 ] || fail "Failed to mount rootfs"
+fi
+
+#mkdir /rfs/dev
+mount -t tmpfs -o size=100K tmpfs /rfs/dev
+cp -a /dev/* /rfs/dev
+
+echo "Cleaning up..."
+umount -l /proc
+umount -l /sys
+
+echo "Switching to rootfs..."
+exec switch_root /rfs /init
