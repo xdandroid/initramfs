@@ -31,17 +31,22 @@ dosfsck -y /dev/block/$partition
 mount -t vfat -o fmask=0000,dmask=0000,rw,flush,noatime,nodiratime /dev/block/$partition /sdcard
 [ $? -eq 0 ] || fail "Failed to mount the SD card. Cannot continue."
 
-if [ -f /sdcard/android/rootfs.img ] ; then
-    root="/sdcard/android/rootfs.img"
+CARD_PATH=`/bin/grep -o "rel_path=.*" /proc/cmdline | /bin/sed -e "s/.*rel_path=//g" -e "s/ .*//g"`
+
+if [ "$CARD_PATH" = "" ];then
+	CARD_PATH="andboot"
+fi
+
+if [ -d /sdcard/$CARD_PATH ] ; then
+	card=/sdcard/$CARD_PATH
+else
+	card=/sdcard
+
+if [ -f $card/rootfs.img ] ; then
+    root="$card/rootfs.img"
     SQUASHFS=0
-elif [ -f /sdcard/android/rootfs.sqsh ]; then
-    root="/sdcard/android/rootfs.sqsh"
-    SQUASHFS=1
-elif [ -f /sdcard/rootfs.img ]; then
-    root="/sdcard/rootfs.img"
-    SQUASHFS=0
-elif [ -f /sdcard/rootfs.sqsh ]; then
-    root="/sdcard/rootfs.sqsh"
+elif [ -f $card/rootfs.sqsh ]; then
+    root="$card/rootfs.sqsh"
     SQUASHFS=1
 else
 	fail "Failed to find rootfs on SD Card. You need to unzip a rootfs zip file to the root of your SD card."
