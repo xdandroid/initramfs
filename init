@@ -17,8 +17,23 @@ while [ ! -d /sys/block/mmcblk0 ] ; do
     echo "Waiting for SD Card"
     sleep 1
 done
+#Wait a bit once mmcblk0 appears
+#Reading partition table could take some time
+sleep 1
 
-partition=mmcblk0p1
+#Call it ... root= ?
+#I don't do that because I don't want to interfer in any way with kernel
+root_partition=`/bin/grep -o "root_partition=.*" /proc/cmdline | /bin/sed -e "s/.*root_partition=//g" -e "s/ .*//g"`
+if ! [ "$root_partition" = "" ];then
+	mkdir /rfs
+	mount -t ext2 $root_partition /rfs
+	exec switch_root /rfs /init
+fi
+
+partition=`/bin/grep -o "loop_partition=.*" /proc/cmdline | /bin/sed -e "s/.*loop_partition=//g" -e "s/ .*//g"`
+if [ "$partition" = "" ];then
+	partition="mmcblk0p1"
+fi
 
 # Try unpartitioned card
 if [ ! -d /sys/block/mmcblk0/$partition ] ; then
