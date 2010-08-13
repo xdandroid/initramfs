@@ -27,6 +27,8 @@ root_partition=`/bin/grep -o "root_partition=.*" /proc/cmdline | /bin/sed -e "s/
 if ! [ "$root_partition" = "" ];then
 	mkdir /rfs
 	mount -t ext2 $root_partition /rfs
+	mount -t tmpfs -o size=100K tmpfs /rfs/dev
+	cp -a /dev/* /rfs/dev
 	exec switch_root /rfs /init
 fi
 
